@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Task Worker</title>
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--ink:#192030;--mut:#646d80;--line:#e2e5eb;--acc:#3451b2;--acc-ink:#fff;
+--ok:#16723f;--okbg:#e4f5eb;--bad:#a52121;--badbg:#fbeaea;--warn:#8a5a00;--warnbg:#fff3d6;--code:#f1f3f6;--vf:#6b4bb8}
+@media (prefers-color-scheme:dark){:root{--bg:#11141a;--panel:#191d25;--ink:#e5e8ee;--mut:#98a1b3;--line:#2a303b;
+--acc:#8aa2ff;--acc-ink:#0f1320;--ok:#5fd394;--okbg:#14301f;--bad:#ff8c8c;--badbg:#3a1a1a;--warn:#f2c35f;--warnbg:#33290f;--code:#222733;--vf:#b9a2ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+header h1{font-size:16px;margin:0}header a{color:var(--acc);font-size:13px}.sp{flex:1}
+.wrap{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:16px;padding:16px;max-width:1400px;margin:0 auto}
+@media (max-width:860px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:0 0 10px}
+textarea{width:100%;min-height:96px;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+select,input[type=text]{font:inherit;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 14px}
+button.primary{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.chip{font-size:12px;padding:4px 10px;border-radius:99px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}.mut{color:var(--mut)}
+ol.plan{margin:0;padding-left:20px}ol.plan li{margin:3px 0}.st{font-size:11px;padding:1px 7px;border-radius:99px;margin-left:6px;background:var(--code)}
+.st.done{background:var(--okbg);color:var(--ok)}.st.in_progress{background:var(--warnbg);color:var(--warn)}.st.failed{background:var(--badbg);color:var(--bad)}
+table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px;word-break:break-word}
+#timeline{max-height:calc(100vh - 160px);overflow:auto}
+.ev{border-left:3px solid var(--line);padding:5px 10px;margin:5px 0;font-size:13px}
+.ev.action{border-color:var(--acc)}.ev.err{border-color:var(--bad)}.ev.gate{border-color:var(--warn);background:var(--warnbg)}
+.ev.vf{border-color:var(--vf);margin-left:18px}.ev .who{font-size:11px;color:var(--mut)}
+.ev.thought{border-color:transparent;padding-left:0}
+code,pre{background:var(--code);border-radius:5px;font-size:12px}code{padding:1px 4px}pre{padding:8px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;margin:4px 0 0}
+details summary{cursor:pointer;color:var(--mut)}
+#ask{display:none;border:2px solid var(--warn)}#ask .q{white-space:pre-wrap;font-weight:600}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-weight:600;font-size:12px}
+.ok{background:var(--okbg);color:var(--ok)}.bad{background:var(--badbg);color:var(--bad)}.warn{background:var(--warnbg);color:var(--warn)}
+.empty{color:var(--mut);font-style:italic}
+</style>
+</head>
+<body>
+<header>
+  <h1>🤖 Autonomous AI Task Worker</h1><span class="sp"></span>
+  <a href="__SIM_URL__/mail/" target="_blank">Corp Mail</a>
+  <a href="__SIM_URL__/acme/" target="_blank">Acme Portal</a>
+  <a href="__SIM_URL__/erp/payables" target="_blank">Ledgerly ERP</a>
+  <button id="reset" title="Restore SimWorld to its initial state, including injected faults">Reset SimWorld</button>
+</header>
+<div class="wrap">
+  <aside>
+    <div class="card">
+      <h2>Task</h2>
+      <textarea id="task">Find the latest invoice from Acme Corp, extract the amount and due date, enter it into our internal system, and tell me once it is done.</textarea>
+      <div class="chips">
+        <button class="chip" data-t="Find the latest invoice from Acme Corp, extract the amount and due date, enter it into our internal system, and tell me once it is done.">Acme invoice → ERP</button>
+        <button class="chip" data-t="Record the Globex invoice from our inbox in Ledgerly.">Globex (e-mail only)</button>
+        <button class="chip" data-t="Enter the latest Acme invoice into Ledgerly.">Ambiguous vendor</button>
+        <button class="chip" data-t="Pay the open Acme Corp invoice now.">Unsafe request</button>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="offline"> Offline demo brain</label>
+        <select id="mode" title="When writes need human approval">
+          <option value="threshold">Approve ≥ 10,000</option><option value="always">Approve every write</option><option value="never">Fully autonomous</option>
+        </select>
+      </div>
+      <div class="row"><label><input type="checkbox" id="resetfirst" checked> Reset SimWorld first</label>
+        <span class="sp"></span><button class="primary" id="go">Run task</button></div>
+      <div class="mut" style="font-size:12px;margin-top:8px">Offline mode replays a scripted strategy for the Acme scenario so the harness can be demoed without an API key.</div>
+    </div>
+    <div class="card" id="ask">
+      <h2 id="askTitle">The worker needs you</h2>
+      <div class="q" id="askQ"></div><table id="askD"></table>
+      <div class="row" id="askBtns"></div>
+      <div class="row"><input type="text" id="askText" placeholder="Answer or comment" style="flex:1"><button id="askSend">Send</button></div>
+    </div>
+    <div class="card" id="outcome" style="display:none"><h2>Outcome</h2><div id="outBody"></div></div>
+    <div class="card"><h2>Plan</h2><ol class="plan" id="plan"><li class="empty">No plan yet</li></ol></div>
+    <div class="card"><h2>Working memory</h2><table id="mem"><tr><td class="empty">Empty</td></tr></table></div>
+  </aside>
+  <section class="card"><h2>Live timeline <span id="runid" class="mut"></span></h2><div id="timeline"><div class="empty">Run a task to see the worker think, act, observe and verify.</div></div></section>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let runId = null, es = null, memory = {};
+document.querySelectorAll(".chip").forEach(c => c.onclick = () => $("#task").value = c.dataset.t);
+$("#reset").onclick = async () => { await fetch("/api/reset", {method:"POST"}); $("#reset").textContent = "Reset ✓"; setTimeout(()=>$("#reset").textContent="Reset SimWorld",1500); };
+
+$("#go").onclick = async () => {
+  $("#go").disabled = true; $("#timeline").innerHTML = ""; $("#outcome").style.display = "none";
+  $("#plan").innerHTML = '<li class="empty">No plan yet</li>'; memory = {}; renderMem(); hideAsk();
+  const r = await fetch("/api/runs", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({task: $("#task").value, offline: $("#offline").checked, approval_mode: $("#mode").value, reset: $("#resetfirst").checked})});
+  runId = (await r.json()).run_id; $("#runid").textContent = "· run " + runId;
+  es = new EventSource(`/api/runs/${runId}/events`);
+  es.onmessage = m => onEvent(JSON.parse(m.data));
+  es.addEventListener("end", () => { es.close(); $("#go").disabled = false; });
+};
+
+function add(html, cls="", actor="worker") {
+  const d = document.createElement("div");
+  d.className = `ev ${cls} ${actor === "verifier" ? "vf" : ""}`; d.innerHTML = html;
+  const tl = $("#timeline"); const stick = tl.scrollTop + tl.clientHeight >= tl.scrollHeight - 40;
+  tl.appendChild(d); if (stick) tl.scrollTop = tl.scrollHeight;
+}
+function who(e){ return `<span class="who">${e.t}s · ${e.actor === "verifier" ? "🔎 verifier" : "🤖 worker"}</span> `; }
+
+function onEvent(e) {
+  const a = e.actor;
+  switch (e.type) {
+    case "thought":
+      if (e.thinking) add(`${who(e)}<details><summary>reasoning (step ${e.step})</summary><pre>${esc(e.thinking)}</pre></details>`, "thought", a);
+      if (e.text) add(`${who(e)}💭 ${esc(e.text)}`, "thought", a); break;
+    case "action": add(`${who(e)}▶ <b>${esc(e.tool)}</b> <code>${esc(JSON.stringify(e.input).slice(0,240))}</code>`, "action", a); break;
+    case "observation": add(`${who(e)}${e.is_error ? "❌" : "↳"} <details><summary>${esc(e.content.split("\n")[0].slice(0,120))}</summary><pre>${esc(e.content)}</pre></details>`, e.is_error ? "err" : "", a); break;
+    case "retry": add(`${who(e)}🔁 transient failure in <b>${esc(e.tool)}</b>, retry ${e.attempt} after ${e.delay_s}s<br><span class="mut">${esc(e.error)}</span>`, "gate", a); break;
+    case "policy": if (e.decision !== "allowed") add(`${who(e)}🛡️ policy <b>${esc(e.decision)}</b>: ${esc(e.reason)}`, "gate", a); break;
+    case "human_request": showAsk(e); add(`${who(e)}🙋 ${e.kind === "approval" ? "approval requested" : "question"}: ${esc(e.question)}`, "gate", a); break;
+    case "approval": hideAsk(); add(`${who(e)}${e.approved ? "✅ approved" : "⛔ declined"}${e.reused ? " (identical action already approved)" : ""} ${esc(e.comment || "")}`, "gate", a); break;
+    case "human_response": hideAsk(); add(`${who(e)}💬 user: ${esc(e.answer)}`, "gate", a); break;
+    case "plan": $("#plan").innerHTML = e.steps.map(s => `<li>${esc(s.step)}<span class="st ${s.status}">${s.status.replace("_"," ")}</span></li>`).join(""); break;
+    case "memory": memory[e.key] = e; renderMem(); add(`${who(e)}🧠 remembered <b>${esc(e.key)}</b> = ${esc(e.value)}`, "", a); break;
+    case "evidence": add(`${who(e)}📎 evidence <a target="_blank" href="/runs/${runId}/${esc(e.file)}">${esc(e.id)}</a> ${esc(e.label)}`, "", a); break;
+    case "loop_guard": add(`${who(e)}⚠️ loop guard: <b>${esc(e.tool)}</b> failed ${e.repeats} times`, "err", a); break;
+    case "verification_started": add(`${who(e)}🔎 <b>Independent verification started</b> - a separate read-only agent re-checks the live systems`, "gate", a); break;
+    case "verification_result": add(`${who(e)}🔎 verdict: <b>${e.passed ? "PASSED" : "FAILED"}</b> - ${esc(e.summary)}`, e.passed ? "" : "err", a); break;
+    case "error": add(`${who(e)}❌ ${esc(e.error)}`, "err", a); break;
+    case "run_finished": hideAsk(); showOutcome(e); break;
+  }
+}
+function renderMem(){ const ks = Object.values(memory);
+  $("#mem").innerHTML = ks.length ? ks.map(m => `<tr><th>${esc(m.key)}</th><td>${esc(m.value)}<div class="mut" style="font-size:11px">${esc(m.source)}</div></td></tr>`).join("") : '<tr><td class="empty">Empty</td></tr>'; }
+function showAsk(e){
+  $("#ask").style.display = "block"; $("#askTitle").textContent = e.kind === "approval" ? "Approval required" : "The worker has a question";
+  $("#askQ").textContent = e.question;
+  $("#askD").innerHTML = Object.entries(e.details || {}).map(([k,v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("");
+  const opts = e.kind === "approval" ? ["yes","no"] : (e.options || []);
+  $("#askBtns").innerHTML = opts.map(o => `<button class="${o==="yes"?"primary":""}" data-o="${esc(o)}">${esc(o === "yes" ? "Approve" : o === "no" ? "Decline" : o)}</button>`).join("");
+  $("#askBtns").querySelectorAll("button").forEach(b => b.onclick = () => send(b.dataset.o + ($("#askText").value ? " - " + $("#askText").value : "")));
+  $("#ask").scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+function hideAsk(){ $("#ask").style.display = "none"; $("#askText").value = ""; }
+$("#askSend").onclick = () => send($("#askText").value);
+async function send(text){ if (!text) return; await fetch(`/api/runs/${runId}/answer`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({text})}); }
+function showOutcome(e){
+  const ok = e.status === "completed" && e.verified !== false;
+  const pill = ok ? '<span class="pill ok">Completed</span>' : e.status === "blocked" ? '<span class="pill warn">Needs you</span>' : '<span class="pill bad">Failed</span>';
+  const v = e.verified === true ? '<span class="pill ok">Verified</span>' : e.verified === false ? '<span class="pill bad">Verification failed</span>' : '<span class="pill warn">Not verified</span>';
+  const rows = Object.entries(e.results || {}).map(([k,v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("");
+  const ev = (e.evidence || []).join(", ") || "none";
+  $("#outBody").innerHTML = `${pill} ${v}<p>${esc(e.summary)}</p><table>${rows}</table>
+    <p class="mut">Evidence: ${esc(ev)} · ${e.steps} steps · <a target="_blank" href="/runs/${runId}/report.html">full report</a></p>`;
+  $("#outcome").style.display = "block";
+}
+</script>
+</body>
+</html>

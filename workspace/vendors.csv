@@ -1,0 +1,4 @@
+vendor_name,ledgerly_vendor_id,invoice_channel,contact
+Acme Corp,V-100,Acme Supplier Portal (/acme/),billing@acme-corp.example
+Acme Logistics,V-200,E-mail,ops@acme-logistics.example
+Globex Ltd,V-300,E-mail,accounts@globex.example

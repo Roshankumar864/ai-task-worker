@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+runs/
+workspace/output/
+workspace/memory/
+
+# Secrets: never commit
+.env
+workspace/vault.json
